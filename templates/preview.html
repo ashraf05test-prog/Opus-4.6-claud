@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Preview Short{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-eye"></i> Preview Short</h1>
+</div>
+
+{% if clip %}
+<div class="preview-container">
+    <div class="preview-video-wrapper">
+        <div class="phone-frame">
+            <video id="previewPlayer" src="/api/preview_video/{{ clip_id }}" controls autoplay loop></video>
+        </div>
+    </div>
+
+    <div class="preview-details card">
+        <h3>{{ clip.title }}</h3>
+        <p class="clip-description">{{ clip.description }}</p>
+
+        <div class="detail-group">
+            <label>Hook Score</label>
+            <div class="score-bar">
+                <div class="score-fill" style="width: {{ clip.hook_score * 10 }}%">{{ clip.hook_score }}/10</div>
+            </div>
+        </div>
+
+        <div class="detail-group">
+            <label>Hashtags</label>
+            <div class="tags-container">
+                {% for tag in clip.hashtags %}
+                <span class="tag">{{ tag }}</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="detail-group">
+            <label>Analysis Source</label>
+            <span class="badge">{{ clip.source }}</span>
+        </div>
+
+        <h4><i class="fas fa-font"></i> Add Text Overlay</h4>
+        <div class="form-group">
+            <input type="text" id="overlayText" value="{{ clip.caption_text }}" class="input-field" placeholder="Enter text...">
+        </div>
+        <div class="form-row">
+            <select id="textPosition" class="input-field small">
+                <option value="top">Top</option>
+                <option value="center">Center</option>
+                <option value="bottom" selected>Bottom</option>
+            </select>
+            <input type="number" id="fontSize" value="48" class="input-field small" placeholder="Font size">
+            <input type="color" id="bgColor" value="#000000" title="Background color">
+            <input type="color" id="txtColor" value="#ffffff" title="Text color">
+        </div>
+        <button class="btn btn-secondary" onclick="applyText()">
+            <i class="fas fa-check"></i> Apply Text
+        </button>
+
+        <hr>
+
+        <div class="action-buttons">
+            <button class="btn btn-primary btn-lg" onclick="uploadThis()">
+                <i class="fab fa-youtube"></i> Upload to YouTube
+            </button>
+            <a href="/api/preview_video/{{ clip_id }}" download class="btn btn-secondary btn-lg">
+                <i class="fas fa-download"></i> Download
+            </a>
+        </div>
+    </div>
+</div>
+{% else %}
+<p>Clip not found.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyText() {
+    const text = document.getElementById('overlayText').value;
+    if (!text) return;
+    fetch('/api/add_text', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            clip_id: '{{ clip_id }}',
+            text: text,
+            position: document.getElementById('textPosition').value,
+            font_size: parseInt(document.getElementById('fontSize').value),
+            bg_color: document.getElementById('bgColor').value,
+            text_color: document.getElementById('txtColor').value,
+            bg_opacity: 0.7
+        })
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            const player = document.getElementById('previewPlayer');
+            player.src = `/api/preview_video/{{ clip_id }}?t=${Date.now()}`;
+            alert('Text added!');
+        } else alert('Error: ' + data.error);
+    });
+}
+
+function uploadThis() {
+    if (!confirm('Upload to YouTube?')) return;
+    fetch('/api/upload_short', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ clip_id: '{{ clip_id }}' })
+    }).then(r => r.json()).then(data => {
+        if (data.success) alert('✅ Uploaded!\n' + data.result.url);
+        else alert('❌ ' + data.error);
+    });
+}
+</script>
+{% endblock %}

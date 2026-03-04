@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Logs - YouTube Shorts AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-terminal"></i> Real-Time Logs</h1>
+    <p class="page-desc">সব অ্যাক্টিভিটির লাইভ লগ।</p>
+</div>
+
+<div class="card">
+    <div class="log-toolbar">
+        <button class="btn btn-sm btn-secondary" onclick="clearLogView()">
+            <i class="fas fa-eraser"></i> Clear View
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="refreshLogs()">
+            <i class="fas fa-sync"></i> Refresh
+        </button>
+        <label class="log-filter-label">
+            <input type="checkbox" id="autoScroll" checked> Auto-scroll
+        </label>
+    </div>
+
+    <div class="log-terminal" id="logTerminal">
+        {% for log in logs[-50:] %}
+        <div class="log-line log-{{ log.level }}">
+            <span class="log-ts">{{ log.time }}</span>
+            <span class="log-tag">[{{ log.task_id }}]</span>
+            <span class="log-msg">{{ log.message }}</span>
+        </div>
+        {% endfor %}
+        {% if not logs %}
+        <div class="log-line log-info">
+            <span class="log-ts">--:--:--</span>
+            <span class="log-msg">Waiting for activity...</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshLogs() {
+    fetch('/api/logs/global?limit=100').then(r => r.json()).then(data => {
+        const terminal = document.getElementById('logTerminal');
+        terminal.innerHTML = '';
+        data.logs.forEach(log => appendLogLine(log));
+    });
+}
+
+function appendLogLine(log) {
+    const terminal = document.getElementById('logTerminal');
+    const div = document.createElement('div');
+    div.className = `log-line log-${log.level || 'info'}`;
+    div.innerHTML = `
+        <span class="log-ts">${log.time || ''}</span>
+        <span class="log-tag">[${log.task_id || 'system'}]</span>
+        <span class="log-msg">${escapeHtml(log.message || '')}</span>
+    `;
+    terminal.appendChild(div);
+
+    if (document.getElementById('autoScroll').checked) {
+        terminal.scrollTop = terminal.scrollHeight;
+    }
+}
+
+function clearLogView() {
+    document.getElementById('logTerminal').innerHTML = 
+        '<div class="log-line log-info"><span class="log-ts">--:--:--</span><span class="log-msg">Log view cleared. New logs will appear here.</span></div>';
+}
+
+function escapeHtml(str) {
+    return str ? str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+}
+
+// Auto-refresh every 3 seconds
+setInterval(refreshLogs, 3000);
+</script>
+{% endblock %}

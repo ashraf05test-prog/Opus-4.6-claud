@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Scheduler{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-clock"></i> Auto Upload Scheduler</h1>
+    <p>Connect Google Drive folder with zip files. Schedule automatic daily uploads.</p>
+</div>
+
+<div class="card">
+    <h3><i class="fab fa-google-drive"></i> Google Drive Setup</h3>
+    <div class="form-group">
+        <label>Public Google Drive Folder Link (containing zip files with shorts)</label>
+        <input type="text" id="gdriveUrl" placeholder="https://drive.google.com/drive/folders/..." class="input-field">
+    </div>
+    <h4>Upload Schedule (Bangladesh Time - Asia/Dhaka)</h4>
+    <div id="scheduleInputs">
+        <div class="form-row schedule-row">
+            <div class="form-group">
+                <label>Time 1</label>
+                <input type="time" value="12:00" class="input-field small schedule-time">
+            </div>
+            <div class="form-group">
+                <label>Time 2</label>
+                <input type="time" value="20:00" class="input-field small schedule-time">
+            </div>
+            <button class="btn btn-sm btn-secondary" onclick="addTimeSlot()">
+                <i class="fas fa-plus"></i> Add Time
+            </button>
+        </div>
+    </div>
+    <button class="btn btn-primary" onclick="setupScheduler()">
+        <i class="fas fa-save"></i> Save & Activate Schedule
+    </button>
+</div>
+
+<!-- Active Jobs -->
+<div class="card">
+    <h3><i class="fas fa-tasks"></i> Active Scheduled Jobs</h3>
+    <div id="jobsList">
+        {% for job in jobs %}
+        <div class="job-item">
+            <span><strong>{{ job.id }}</strong> — Next: {{ job.next_run }}</span>
+            <button class="btn btn-sm btn-danger" onclick="removeJob('{{ job.id }}')">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+        {% else %}
+        <p class="text-muted">No scheduled jobs.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Upload Log -->
+<div class="card">
+    <h3><i class="fas fa-history"></i> Upload Log</h3>
+    <div class="log-list" id="logsList">
+        {% for log in logs %}
+        <div class="log-item {{ 'log-success' if log.status == 'success' else 'log-error' }}">
+            <span class="log-time">{{ log.timestamp }}</span>
+            <span class="log-video">{{ log.video }}</span>
+            <span class="log-status badge">{{ log.status }}</span>
+        </div>
+        {% else %}
+        <p class="text-muted">No uploads yet.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addTimeSlot() {
+    const container = document.querySelector('.schedule-row');
+    const div = document.createElement('div');
+    div.className = 'form-group';
+    div.innerHTML = `<label>Time</label><input type="time" value="15:00" class="input-field small schedule-time">`;
+    container.insertBefore(div, container.lastElementChild);
+}
+
+function setupScheduler() {
+    const url = document.getElementById('gdriveUrl').value.trim();
+    if (!url) { alert('Enter Google Drive folder URL'); return; }
+
+    const timeInputs = document.querySelectorAll('.schedule-time');
+    const times = [];
+    timeInputs.forEach(input => {
+        const [h, m] = input.value.split(':');
+        times.push({ hour: parseInt(h), minute: parseInt(m) });
+    });
+
+    fetch('/api/gdrive/setup', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ folder_url: url, times })
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            location.reload();
+        } else {
+            alert('❌ ' + data.error);
+        }
+    });
+}
+
+function removeJob(jobId) {
+    if (!confirm('Remove this scheduled job?')) return;
+    fetch(`/api/scheduler/remove/${jobId}`, { method: 'DELETE' })
+    .then(r => r.json()).then(() => location.reload());
+}
+</script>
+{% endblock %}

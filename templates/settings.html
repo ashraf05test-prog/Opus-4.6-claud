@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Settings - YouTube Shorts AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-cog"></i> Settings</h1>
+</div>
+
+<!-- YouTube Connection -->
+<div class="card">
+    <h3><i class="fab fa-youtube"></i> YouTube Channel Connection</h3>
+    <div id="ytSection">
+        <div id="ytConnected" style="display:none;">
+            <div class="channel-card">
+                <img id="channelThumb" src="" alt="" class="channel-avatar">
+                <div class="channel-details">
+                    <h4 id="channelName"></h4>
+                    <p id="channelSubs" class="text-muted"></p>
+                </div>
+                <span class="badge badge-success">✅ Connected</span>
+            </div>
+            <button class="btn btn-danger" onclick="disconnectYT()" style="margin-top:12px;">
+                <i class="fas fa-sign-out-alt"></i> Disconnect / Log Out
+            </button>
+        </div>
+        <div id="ytDisconnected">
+            <p class="text-muted">YouTube channel connect করুন — সরাসরি Shorts আপলোড করতে পারবেন।</p>
+            <button class="btn btn-primary btn-lg" onclick="connectYT()">
+                <i class="fab fa-youtube"></i> Connect YouTube Channel
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Cookies Upload -->
+<div class="card">
+    <h3><i class="fas fa-cookie-bite"></i> YouTube Cookies (Bot Detection Fix)</h3>
+    <p class="text-muted" style="margin-bottom:12px;">
+        YouTube বট ডিটেকশন হলে আপনার ব্রাউজার থেকে cookies.txt এক্সপোর্ট করে আপলোড দিন। 
+        এতে yt-dlp আপনার একাউন্ট session ব্যবহার করবে।
+    </p>
+
+    <div class="cookie-status" id="cookieStatus">
+        {% if cookies_uploaded %}
+        <div class="status-card status-ok">
+            <i class="fas fa-check-circle"></i>
+            <span>Cookies loaded ✅</span>
+            <button class="btn btn-sm btn-danger" onclick="deleteCookies()">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        </div>
+        {% else %}
+        <div class="status-card status-warn">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>No cookies — bot detection হতে পারে</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="upload-area" id="cookieUploadArea">
+        <form id="cookieForm" enctype="multipart/form-data">
+            <div class="file-upload-wrapper">
+                <input type="file" id="cookieFile" name="cookies_file" accept=".txt" onchange="uploadCookies()">
+                <div class="file-upload-label">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>cookies.txt ফাইল ড্র্যাগ করুন বা ক্লিক করুন</span>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="help-box" style="margin-top:16px;">
+        <h4><i class="fas fa-question-circle"></i> কীভাবে cookies.txt পাবেন?</h4>
+        <div class="help-steps">
+            <p><strong>Step 1:</strong> Chrome/Firefox-এ "Get cookies.txt LOCALLY" extension ইনস্টল করুন</p>
+            <p><strong>Step 2:</strong> YouTube.com-এ লগইন করুন</p>
+            <p><strong>Step 3:</strong> Extension-এ ক্লিক করে "Export" করুন</p>
+            <p><strong>Step 4:</strong> সেভ হওয়া cookies.txt ফাইল এখানে আপলোড দিন</p>
+        </div>
+    </div>
+</div>
+
+<!-- API Status -->
+<div class="card">
+    <h3><i class="fas fa-key"></i> API Keys Status</h3>
+    <div id="apiStatusList">
+        <div class="api-row">
+            <span><i class="fas fa-robot"></i> Grok AI (xAI)</span>
+            <span class="badge" id="grokBadge">Checking...</span>
+        </div>
+        <div class="api-row">
+            <span><i class="fas fa-gem"></i> Gemini AI (Google)</span>
+            <span class="badge" id="geminiBadge">Checking...</span>
+        </div>
+        <div class="api-row">
+            <span><i class="fas fa-microphone"></i> Groq Whisper</span>
+            <span class="badge" id="groqBadge">Checking...</span>
+        </div>
+        <div class="api-row">
+            <span><i class="fab fa-google-drive"></i> Google Drive</span>
+            <span class="badge" id="gdriveBadge">Checking...</span>
+        </div>
+    </div>
+    <p class="text-muted" style="margin-top:12px;">
+        API keys Railway Dashboard-এ Environment Variables হিসেবে সেট করুন।
+    </p>
+</div>
+
+<!-- System Info -->
+<div class="card">
+    <h3><i class="fas fa-server"></i> System Status</h3>
+    <div id="systemInfo">Loading...</div>
+    <button class="btn btn-secondary" onclick="cleanupFiles()" style="margin-top:12px;">
+        <i class="fas fa-broom"></i> Cleanup Temp Files
+    </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ──── YouTube ────
+function checkYT() {
+    fetch('/api/youtube/status').then(r => r.json()).then(data => {
+        if (data.connected && data.channel) {
+            document.getElementById('ytConnected').style.display = 'block';
+            document.getElementById('ytDisconnected').style.display = 'none';
+            document.getElementById('channelName').textContent = data.channel.name;
+            document.getElementById('channelThumb').src = data.channel.thumbnail;
+            document.getElementById('channelSubs').textContent = data.channel.subscribers + ' subscribers';
+        } else {
+            document.getElementById('ytConnected').style.display = 'none';
+            document.getElementById('ytDisconnected').style.display = 'block';
+        }
+    }).catch(() => {});
+}
+
+function connectYT() {
+    fetch('/api/youtube/auth_url').then(r => r.json()).then(data => {
+        if (data.url) window.location.href = data.url;
+        else showToast('Error getting auth URL', 'error');
+    });
+}
+
+function disconnectYT() {
+    if (!confirm('YouTube channel disconnect করবেন?')) return;
+    fetch('/api/youtube/disconnect', { method: 'POST' })
+    .then(r => r.json()).then(() => { showToast('Disconnected!', 'success'); checkYT(); });
+}
+
+// ──── Cookies ────
+function uploadCookies() {
+    const fileInput = document.getElementById('cookieFile');
+    if (!fileInput.files.length) return;
+
+    const formData = new FormData();
+    formData.append('cookies_file', fileInput.files[0]);
+
+    fetch('/api/cookies/upload', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('✅ Cookies uploaded! Bot detection bypassed.', 'success');
+            updateCookieStatus(true);
+        } else {
+            showToast('❌ ' + data.error, 'error');
+        }
+        fileInput.value = '';
+    })
+    .catch(err => showToast('Upload error: ' + err.message, 'error'));
+}
+
+function deleteCookies() {
+    if (!confirm('Cookies delete করবেন?')) return;
+    fetch('/api/cookies/delete', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Cookies deleted', 'success');
+            updateCookieStatus(false);
+        }
+    });
+}
+
+function updateCookieStatus(exists) {
+    const el = document.getElementById('cookieStatus');
+    if (exists) {
+        el.innerHTML = `
+            <div class="status-card status-ok">
+                <i class="fas fa-check-circle"></i>
+                <span>Cookies loaded ✅</span>
+                <button class="btn btn-sm btn-danger" onclick="deleteCookies()">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>`;
+    } else {
+        el.innerHTML = `
+            <div class="status-card status-warn">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>No cookies — bot detection হতে পারে</span>
+            </div>`;
+    }
+}
+
+// ──── System ────
+function loadSystemInfo() {
+    fetch('/api/health').then(r => r.json()).then(data => {
+        document.getElementById('systemInfo').innerHTML = `
+            <div class="system-grid">
+                <div class="sys-item"><span>Temp Files</span><strong>${data.temp_files}</strong></div>
+                <div class="sys-item"><span>Output Files</span><strong>${data.output_files}</strong></div>
+                <div class="sys-item"><span>Active Tasks</span><strong>${data.active_tasks}</strong></div>
+                <div class="sys-item"><span>Total Clips</span><strong>${data.total_clips}</strong></div>
+                <div class="sys-item"><span>Cookies</span><strong>${data.cookies_loaded ? '✅ Yes' : '❌ No'}</strong></div>
+                <div class="sys-item"><span>YouTube</span><strong>${data.youtube_connected ? '✅ Connected' : '❌ No'}</strong></div>
+                <div class="sys-item"><span>Scheduled Jobs</span><strong>${data.scheduled_jobs}</strong></div>
+            </div>`;
+    }).catch(() => {
+        document.getElementById('systemInfo').innerHTML = '<p class="text-muted">Could not load system info</p>';
+    });
+}
+
+function cleanupFiles() {
+    fetch('/api/cleanup', { method: 'POST' }).then(r => r.json()).then(() => {
+        showToast('🧹 Cleaned up!', 'success');
+        loadSystemInfo();
+    });
+}
+
+// Init
+checkYT();
+loadSystemInfo();
+</script>
+{% endblock %}

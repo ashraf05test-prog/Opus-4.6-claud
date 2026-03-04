@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Auto Crop - YouTube Shorts AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-magic"></i> AI Auto Crop</h1>
+    <p>Paste a YouTube video link. AI will find viral moments and create Shorts automatically.</p>
+</div>
+
+<div class="input-section card">
+    <div class="form-group">
+        <label for="videoUrl"><i class="fas fa-link"></i> YouTube Video URL</label>
+        <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." class="input-field">
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label for="numClips"><i class="fas fa-film"></i> Number of Clips</label>
+            <input type="number" id="numClips" value="5" min="1" max="15" class="input-field small">
+        </div>
+        <button id="analyzeBtn" class="btn btn-primary btn-lg" onclick="startAnalysis()">
+            <i class="fas fa-bolt"></i> Analyze & Generate Shorts
+        </button>
+    </div>
+</div>
+
+<!-- Progress Section -->
+<div id="progressSection" class="card" style="display:none;">
+    <h3><i class="fas fa-spinner fa-spin"></i> Processing...</h3>
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar" style="width:0%"></div>
+    </div>
+    <p id="progressText" class="progress-text">Starting...</p>
+</div>
+
+<!-- Results Section -->
+<div id="resultsSection" style="display:none;">
+    <h2 class="section-title"><i class="fas fa-video"></i> Generated Shorts</h2>
+    <div class="clips-grid" id="clipsGrid"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTaskId = null;
+let pollInterval = null;
+
+function startAnalysis() {
+    const url = document.getElementById('videoUrl').value.trim();
+    const numClips = document.getElementById('numClips').value;
+
+    if (!url) { alert('Please enter a YouTube URL'); return; }
+
+    currentTaskId = 'task_' + Date.now();
+    document.getElementById('progressSection').style.display = 'block';
+    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('analyzeBtn').disabled = true;
+
+    fetch('/api/analyze', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ url, num_clips: numClips, task_id: currentTaskId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        pollInterval = setInterval(checkStatus, 2000);
+    })
+    .catch(err => {
+        alert('Error: ' + err.message);
+        document.getElementById('analyzeBtn').disabled = false;
+    });
+}
+
+function checkStatus() {
+    fetch(`/api/status/${currentTaskId}`)
+    .then(r => r.json())
+    .then(data => {
+        const bar = document.getElementById('progressBar');
+        const text = document.getElementById('progressText');
+
+        bar.style.width = (data.progress || 0) + '%';
+
+        const statusMessages = {
+            'downloading': '📥 Downloading video in high resolution...',
+            'transcribing': '🎙️ Transcribing with Whisper AI...',
+            'analyzing_grok': '🤖 Analyzing with Grok AI...',
+            'analyzing_gemini': '💎 Analyzing with Gemini AI...',
+            'cropping': `✂️ Cropping clip ${data.current_clip || ''}/${data.total_clips || ''}...`,
+            'done': '✅ Done!',
+            'error': '❌ Error: ' + (data.error || 'Unknown error')
+        };
+        text.textContent = statusMessages[data.status] || data.status;
+
+        if (data.status === 'done') {
+            clearInterval(pollInterval);
+            document.getElementById('analyzeBtn').disabled = false;
+            displayResults(data.clips_data);
+        }
+        if (data.status === 'error') {
+            clearInterval(pollInterval);
+            document.getElementById('analyzeBtn').disabled = false;
+        }
+    });
+}
+
+function displayResults(clips) {
+    document.getElementById('resultsSection').style.display = 'block';
+    const grid = document.getElementById('clipsGrid');
+    grid.innerHTML = '';
+
+    clips.forEach(clip => {
+        const card = document.createElement('div');
+        card.className = 'clip-card card';
+        card.innerHTML = `
+            <div class="clip-preview">
+                <video src="/api/preview_video/${clip.id}" controls preload="metadata"></video>
+            </div>
+            <div class="clip-info">
+                <h4>${clip.title || 'Untitled Short'}</h4>
+                <div class="clip-meta">
+                    <span class="badge badge-score">🔥 Hook: ${clip.hook_score}/10</span>
+                    <span class="badge badge-source">${clip.source}</span>
+                    <span class="badge badge-time">${formatTime(clip.start_time)} - ${formatTime(clip.end_time)}</span>
+                </div>
+                <p class="clip-reason">${clip.reason}</p>
+                <div class="clip-tags">
+                    ${(clip.hashtags || []).slice(0, 5).map(t => `<span class="tag">${t}</span>`).join('')}
+                </div>
+                <div class="clip-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="openTextEditor('${clip.id}')">
+                        <i class="fas fa-font"></i> Add Text
+                    </button>
+                    <a href="/preview/${clip.id}" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-eye"></i> Preview
+                    </a>
+                    <button class="btn btn-sm btn-primary" onclick="uploadClip('${clip.id}')">
+                        <i class="fab fa-youtube"></i> Upload
+                    </button>
+                </div>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function uploadClip(clipId) {
+    if (!confirm('Upload this Short to YouTube?')) return;
+    fetch('/api/upload_short', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ clip_id: clipId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Uploaded! URL: ' + data.result.url);
+        } else {
+            alert('❌ Error: ' + (data.error || 'Upload failed'));
+        }
+    });
+}
+
+function openTextEditor(clipId) {
+    const text = prompt('Enter overlay text:');
+    if (!text) return;
+    fetch('/api/add_text', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            clip_id: clipId,
+            text: text,
+            position: 'bottom',
+            font_size: 48,
+            bg_color: 'black',
+            text_color: 'white',
+            bg_opacity: 0.7
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('Text added! Refresh preview.');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+}
+</script>
+{% endblock %}

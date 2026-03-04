@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}YouTube Shorts AI{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fab fa-youtube"></i>
+                <span class="logo-text">Shorts AI</span>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+
+        <ul class="nav-links">
+            <li>
+                <a href="/" class="{% if request.endpoint == 'index' %}active{% endif %}">
+                    <i class="fas fa-magic"></i>
+                    <span>Auto Crop</span>
+                </a>
+            </li>
+            <li>
+                <a href="/manual" class="{% if request.endpoint == 'manual_page' %}active{% endif %}">
+                    <i class="fas fa-cut"></i>
+                    <span>Manual Crop</span>
+                </a>
+            </li>
+            <li>
+                <a href="/scheduler" class="{% if request.endpoint == 'scheduler_page' %}active{% endif %}">
+                    <i class="fas fa-clock"></i>
+                    <span>Scheduler</span>
+                </a>
+            </li>
+            <li>
+                <a href="/settings" class="{% if request.endpoint == 'settings_page' %}active{% endif %}">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </li>
+            <li>
+                <a href="/logs" class="{% if request.endpoint == 'logs_page' %}active{% endif %}">
+                    <i class="fas fa-terminal"></i>
+                    <span>Logs</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="yt-connection" id="ytConnectionStatus">
+                <span class="status-dot disconnected"></span>
+                <span class="status-text">YouTube: Checking...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
